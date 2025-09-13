@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Student Finance Manager — HTML Prototype</title>
+  <style>
+    :root{--bg:#0f172a;--card:#0b1220;--muted:#9aa4b2;--accent:#60a5fa;--glass: rgba(255,255,255,0.03)}
+    body{font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial; margin:0; background:linear-gradient(180deg,#071025 0%, #081124 100%); color:#e6eef8}
+    .container{max-width:1100px;margin:28px auto;padding:18px}
+    h1{font-size:20px;margin:0 0 12px}
+    .grid{display:grid;gap:12px}
+    .cols-3{grid-template-columns:repeat(3,1fr)}
+    .card{background:var(--card); padding:12px;border-radius:10px;box-shadow:0 4px 18px rgba(2,6,23,0.6)}
+    .muted{color:var(--muted);font-size:13px}
+    input,select,button{font-size:14px}
+    .row{display:flex;gap:8px;align-items:center}
+    .space-y{display:flex;flex-direction:column;gap:8px}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:6px 8px;text-align:left;border-bottom:1px solid rgba(255,255,255,0.03)}
+    .right{text-align:right}
+    .pill{background:var(--glass);padding:6px 8px;border-radius:8px}
+    .small{font-size:13px}
+    .btn{background:var(--accent);color:#042444;padding:8px 10px;border-radius:8px;border:none;cursor:pointer}
+    .danger{background:#ef4444;color:white}
+    .input{padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+    label{font-size:13px}
+    .flex-between{display:flex;justify-content:space-between;align-items:center}
+    @media (max-width:900px){.cols-3{grid-template-columns:1fr}} 
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Student Finance Manager — HTML Prototype</h1>
+    <div class="grid cols-3" style="margin-bottom:12px">
+      <div class="card">
+        <div class="flex-between"><strong>Import transactions (CSV)</strong><small class="muted">header: date,description,amount</small></div>
+        <div style="margin-top:8px" class="space-y">
+          <input id="file" type="file" accept=".csv" class="input" />
+          <div class="row">
+            <button id="seed" class="btn">Seed demo data</button>
+            <button id="clearTx" class="btn" style="background:#334155;color:#e6eef8">Clear transactions</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <strong>Budgets</strong>
+        <div class="muted small">Set monthly limits per category</div>
+        <div id="budgetsList" style="margin-top:8px" class="space-y small"></div>
+        <div style="margin-top:8px" class="row">
+          <input id="budgetCat" placeholder="Category" class="input" />
+          <input id="budgetVal" placeholder="Monthly limit" class="input" />
+          <button id="addBudget" class="btn">Add</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <strong>Goals</strong>
+        <div class="muted small">Save for things you want</div>
+        <div id="goalsList" style="margin-top:8px" class="space-y small"></div>
+        <div style="margin-top:8px" class="row">
+          <input id="goalTitle" placeholder="Goal title" class="input" />
+          <input id="goalTarget" placeholder="Target amount" class="input" />
+          <button id="addGoal" class="btn">Create</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid cols-3" style="margin-bottom:12px">
+      <div class="card">
+        <strong>Category totals</strong>
+        <div id="catTotals" class="space-y small" style="margin-top:8px"></div>
+      </div>
+
+      <div class="card">
+        <strong>Forecast</strong>
+        <div id="forecast" class="muted small" style="margin-top:8px"></div>
+      </div>
+
+      <div class="card">
+        <div class="flex-between"><strong>Budget alerts</strong><small class="muted">threshold</small></div>
+        <input id="alertRange" type="range" min="50" max="100" value="90" style="width:100%;margin-top:8px" />
+        <div id="alerts" class="space-y small" style="margin-top:8px"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:12px">
+      <strong>Add transaction (manual)</strong>
+      <form id="manualForm" style="margin-top:8px" class="row">
+        <input id="mDate" type="date" class="input" />
+        <input id="mDesc" placeholder="Description" class="input" />
+        <input id="mAmount" placeholder="Amount" type="number" class="input" />
+        <input id="mCat" placeholder="Category (optional)" class="input" />
+        <button class="btn">Add</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="flex-between"><strong>Transactions</strong>
+        <div class="row"><label class="small muted">Filter</label>
+          <select id="filter" class="input"><option value="all">All</option></select>
+        </div>
+      </div>
+      <div style="margin-top:8px;overflow:auto;max-height:320px">
+        <table>
+          <thead>
+            <tr><th>Date</th><th>Description</th><th class="right">Amount</th><th>Category</th><th></th></tr>
+          </thead>
+          <tbody id="txTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Simple keyword-based categories (replaceable with ML later)
+    const categoryKeywords = {
+      Food: ['coffee','starbucks','restaurant','cafe','dinner','uber eats','zomato','swiggy','canteen'],
+      Transport: ['uber','ola','metro','bus','taxi','fuel','petrol','cab'],
+      Entertainment: ['netflix','spotify','movie','amazon prime','hulu','games','play'],
+      Bills: ['electricity','water','bill','phone','internet','rent'],
+      Groceries: ['supermarket','grocery','dmart','grocer'],
+      Income: ['salary','stipend','deposit','refund'],
+      Misc: []
+    };
+
+    function categorize(desc){
+      const d=(desc||'').toLowerCase();
+      for(const [cat,keys] of Object.entries(categoryKeywords)){
+        for(const k of keys){ if(k && d.includes(k)) return cat }
+      }
+      return 'Misc';
+    }
+
+    // storage keys
+    const KEY_TX = 'sfm_tx';
+    const KEY_BUD = 'sfm_bud';
+    const KEY_GOALS = 'sfm_goals';
+
+    let transactions = JSON.parse(localStorage.getItem(KEY_TX) || '[]');
+    let budgets = JSON.parse(localStorage.getItem(KEY_BUD) || '{}');
+    let goals = JSON.parse(localStorage.getItem(KEY_GOALS) || '[]');
+
+    // --- helpers ---
+    function save(){ localStorage.setItem(KEY_TX, JSON.stringify(transactions)); localStorage.setItem(KEY_BUD, JSON.stringify(budgets)); localStorage.setItem(KEY_GOALS, JSON.stringify(goals)); renderAll(); }
+    function money(x){ return (Number(x)||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) }
+
+    // --- CSV parse ---
+    function parseCSV(text){
+      const lines = text.trim().split(/\r?\n/).filter(Boolean);
+      if(lines.length<2) return [];
+      const header = lines[0].split(',').map(h=>h.trim().toLowerCase());
+      const dateIdx = header.indexOf('date');
+      const descIdx = header.indexOf('description')!==-1?header.indexOf('description'):header.indexOf('desc');
+      const amtIdx = header.indexOf('amount')!==-1?header.indexOf('amount'):header.indexOf('amt');
+      const out = [];
+      for(let i=1;i<lines.length;i++){
+        const cols = lines[i].split(',');
+        const date = cols[dateIdx]?cols[dateIdx].trim():'';
+        const desc = cols[descIdx]?cols[descIdx].trim():'';
+        const amt = parseFloat((cols[amtIdx]||'0').replace(/[^0-9.-]/g,''))||0;
+        out.push({id:Date.now()+'-'+i,date,description:desc,amount:amt,category:categorize(desc)});
+      }
+      return out;
+    }
+
+    // --- UI rendering ---
+    const txTable = document.getElementById('txTable');
+    const filter = document.getElementById('filter');
+    const catTotalsEl = document.getElementById('catTotals');
+    const forecastEl = document.getElementById('forecast');
+    const alertsEl = document.getElementById('alerts');
+    const budgetsList = document.getElementById('budgetsList');
+    const goalsList = document.getElementById('goalsList');
+
+    function totalsByCategory(){
+      const map = {};
+      for(const t of transactions){ const c = t.category || categorize(t.description); map[c] = (map[c]||0) + (isNaN(t.amount)?0:t.amount) }
+      return map;
+    }
+
+    function predictNextMonth(){
+      const months = {}; // yyyy-mm -> total
+      for(const t of transactions){ if(!t.date) continue; const d = new Date(t.date); if(isNaN(d)) continue; const key = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); months[key] = (months[key]||0) + t.amount }
+      const keys = Object.keys(months).sort(); if(keys.length<2) return {ok:false,reason:'Not enough months'};
+      const xs=[],ys=[]; for(let i=0;i<keys.length;i++){ xs.push(i+1); ys.push(months[keys[i]]) }
+      const n = xs.length; const sumX=xs.reduce((a,b)=>a+b,0); const sumY=ys.reduce((a,b)=>a+b,0); const sumXY=xs.reduce((s,x,i)=>s+x*ys[i],0); const sumX2=xs.reduce((s,x)=>s+x*x,0); const denom=(n*sumX2 - sumX*sumX); if(denom===0) return {ok:false,reason:'Flat data'}; const slope=(n*sumXY - sumX*sumY)/denom; const intercept=(sumY - slope*sumX)/n; const next = intercept + slope*(n+1); return {ok:true,predicted:next,months}
+    }
+
+    function renderAll(){
+      // transactions table
+      const f = filter.value;
+      txTable.innerHTML = '';
+      for(const t of transactions.filter(t=> f==='all'?true:t.category===f)){
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${t.date||''}</td><td>${escapeHtml(t.description||'')}</td><td class="right">${money(t.amount)}</td><td>${t.category||''}</td><td class="right"><button data-id="${t.id}" class="danger btn smallBtn">Delete</button></td>`;
+        txTable.appendChild(tr);
+      }
+
+      // populate filter options
+      const cats = Array.from(new Set(transactions.map(t=>t.category).filter(Boolean)));
+      filter.innerHTML = '<option value="all">All</option>' + cats.map(c=>`<option value="${c}">${c}</option>`).join('');
+
+      // category totals
+      const totals = totalsByCategory();
+      catTotalsEl.innerHTML = Object.keys(totals).length? Object.entries(totals).map(([c,v])=>`<div class="row"><div>${c}</div><div class="right pill">${money(v)}</div></div>`).join('') : '<div class="muted small">No transactions yet</div>';
+
+      // forecast
+      const fc = predictNextMonth();
+      forecastEl.innerHTML = fc.ok ? `Predicted next month total: <strong>${money(fc.predicted)}</strong> (based on ${Object.keys(fc.months).length} months)` : `<div class="muted">${fc.reason||'Not enough data'}</div>`;
+
+      // budgets list
+      budgetsList.innerHTML = Object.keys(budgets).length ? Object.entries(budgets).map(([c,v])=>`<div class="row"><div>${c}</div><div class="row"><div class="pill">${money(v)}</div><button data-cat="${c}" class="danger btn smallBtn">Delete</button></div></div>`).join('') : '<div class="muted small">No budgets set yet</div>';
+
+      // goals list
+      goalsList.innerHTML = goals.length? goals.map(g=>`<div class="row"><div style="flex:1"><strong>${escapeHtml(g.title)}</strong><div class="muted small">Target ${money(g.target)}</div></div><div class="row"><div>${money(g.progress||0)}</div><div>${Math.min(100,Math.round(((g.progress||0)/g.target)*100||0))}%</div><button data-goal="${g.id}" class="danger btn smallBtn">Delete</button></div></div>`).join('') : '<div class="muted small">No goals yet</div>';
+
+      // alerts
+      const threshold = Number(document.getElementById('alertRange').value) || 90;
+      const alerts = [];
+      for(const [c,limit] of Object.entries(budgets)){
+        const spent = totals[c]||0; if(!limit) continue; const pct = (spent/limit)*100; if(pct >= threshold) alerts.push({c,spent,limit, pct: Math.round(pct)});
+      }
+      alertsEl.innerHTML = alerts.length? alerts.map(a=>`<div class="pill"><strong>${a.c}</strong> — Spent ${money(a.spent)} of ${money(a.limit)} (${a.pct}%)</div>`).join('') : '<div class="muted small">No alerts</div>';
+
+      // attach delete handlers
+      document.querySelectorAll('.smallBtn').forEach(btn => btn.onclick = (e)=>{
+        const id = btn.getAttribute('data-id'); const cat = btn.getAttribute('data-cat'); const gid = btn.getAttribute('data-goal');
+        if(id){ transactions = transactions.filter(t=>t.id!==id); save(); }
+        if(cat){ delete budgets[cat]; save(); }
+        if(gid){ goals = goals.filter(g=>g.id!==gid); save(); }
+      });
+    }
+
+    // --- utilities ---
+    function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+
+    // --- events ---
+    document.getElementById('file').addEventListener('change', e=>{
+      const f = e.target.files[0]; if(!f) return; const reader = new FileReader(); reader.onload = ev=>{
+        try{ const parsed = parseCSV(ev.target.result); transactions = parsed.concat(transactions); save(); alert('Imported '+parsed.length+' rows'); }catch(err){ alert('Failed to parse CSV: '+err.message) }
+      }; reader.readAsText(f);
+    });
+
+    document.getElementById('seed').addEventListener('click', ()=>{
+      const demo = [
+        {id:'d1',date:'2025-05-03',description:'Starbucks coffee',amount:4.5,category:'Food'},
+        {id:'d2',date:'2025-05-04',description:'Metro recharge',amount:12,category:'Transport'},
+        {id:'d3',date:'2025-04-12',description:'Salary deposit',amount:300,category:'Income'},
+        {id:'d4',date:'2025-04-21',description:'Netflix subscription',amount:8.99,category:'Entertainment'},
+        {id:'d5',date:'2025-03-11',description:'Groceries at DMart',amount:45,category:'Groceries'}
+      ]; transactions = demo.concat(transactions); save();
+    });
+
+    document.getElementById('clearTx').addEventListener('click', ()=>{ if(confirm('Clear all transactions?')){ transactions=[]; save(); } });
+
+    document.getElementById('addBudget').addEventListener('click', ()=>{
+      const c = document.getElementById('budgetCat').value.trim(); const v = Number(document.getElementById('budgetVal').value);
+      if(!c || !v) return alert('Provide category and numeric limit'); budgets[c]=v; save(); document.getElementById('budgetCat').value=''; document.getElementById('budgetVal').value='';
+    });
+
+    document.getElementById('addGoal').addEventListener('click', ()=>{
+      const t = document.getElementById('goalTitle').value.trim(); const v = Number(document.getElementById('goalTarget').value);
+      if(!t || !v) return alert('Provide title and numeric target'); goals.unshift({id:Date.now().toString(),title:t,target:v,progress:0}); save(); document.getElementById('goalTitle').value=''; document.getElementById('goalTarget').value='';
+    });
+
+    document.getElementById('manualForm').addEventListener('submit', e=>{
+      e.preventDefault(); const d=document.getElementById('mDate').value; const desc=document.getElementById('mDesc').value.trim(); const amt=Number(document.getElementById('mAmount').value); const cat=document.getElementById('mCat').value.trim(); if(!d||!desc||!amt) return alert('Fill date, desc, amount'); const t={id:Date.now().toString(),date:d,description:desc,amount:amt,category:cat||categorize(desc)}; transactions.unshift(t); save(); document.getElementById('mDate').value=''; document.getElementById('mDesc').value=''; document.getElementById('mAmount').value=''; document.getElementById('mCat').value='';
+    });
+
+    document.getElementById('alertRange').addEventListener('input', ()=>{ renderAll(); });
+    document.getElementById('filter').addEventListener('change', ()=>{ renderAll(); });
+
+    // allow quick goal top-up by clicking goal row: handled via delegation
+    goalsList.addEventListener('click', e=>{
+      const btn = e.target.closest('button'); if(!btn) return; const gid = btn.getAttribute('data-goal'); if(!gid) return; if(confirm('Delete this goal?')){ goals = goals.filter(g=>g.id!==gid); save(); }
+    });
+
+    // small UX: clicking category total could set filter (delegation)
+    catTotalsEl.addEventListener('click', e=>{ const txt = e.target.textContent||''; const name = txt.split('\t')[0]; if(name && name!=='No transactions yet') { document.getElementById('filter').value = name; renderAll(); } });
+
+    // init
+    renderAll();
+  </script>
+</body>
+</html>
